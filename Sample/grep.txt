@@ -1,0 +1,3 @@
+grep -i 'navigator' LogCommits.txt
+
+grep -l -r 'b911c27cb049374f11ee2f7cd135d2ea' C:/axioma/asfzd/asfzd поиск имен файлов в дирректории
