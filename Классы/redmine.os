@@ -10,12 +10,23 @@
 Перем cardId; // ID карточки kaiten
 Перем kaitenUsersTable; // Таблица пользователей kaiten
 Перем kaitenUsersFields; // Пользовательские поля kaiten
+Перем kaitenTypesId; // Типы карточек kaiten
 
 Перем redmineProjectId; // ID проектаredmine
 Перем redmineVersionsTable; // Таблица версий redmine
+Перем redmineTrackersId; // Трекеры задач redmine
+Перем redminePriority; // Приоритеты задач redmine
+Перем redmineStatusId; // ID нового статуса redmine
+Перем redmineCategory; // Категории задач redmine
+Перем redmineAssignedId; // ID пользователя redmine для назначения задачи
+Перем redmineCustomFields; // Пользовательские поля redmine
 
 Перем redmineURL; // Redmine URL
 Перем redmineAPIKEY; // Redmine API key
+
+Перем kaitenTypesInRedmineTrackers; // Соответствие типов карточек kaiten с redmine трекерами
+Перем kaitenRedmineUsers; // Соответствие пользователей кайтен и редмайн
+Перем ТаблицаСоответствияПользователей; // Таблица соответствия пользователей кайтен и редмайн
 
 Функция Инициализировать(Знач АргументыКоманднойСтроки) Экспорт
 	
@@ -38,11 +49,20 @@
 	kaitenToken		= НастройкиИзФайла.Получить("kaitenToken");
 	kaitenNameSpace	= НастройкиИзФайла.Получить("kaitenNameSpace");
 	kaitenBoardId	= НастройкиИзФайла.Получить("kaitenBoardId");
+	kaitenTypesId	= НастройкиИзФайла.Получить("kaitenTypesId");
 	
 	kaitenUsersFields	= НастройкиИзФайла.Получить("kaitenUsersFields");
 	
 	redmineProjectId	= НастройкиИзФайла.Получить("redmineProjectId");
+	redmineTrackersId	= НастройкиИзФайла.Получить("redmineTrackersId");
+	redmineStatusId		= НастройкиИзФайла.Получить("redmineStatusId");
 	redminePriority		= НастройкиИзФайла.Получить("redminePriority");
+	redmineCategory		= НастройкиИзФайла.Получить("redmineCategory");
+	redmineAssignedId	= НастройкиИзФайла.Получить("redmineAssignedId");
+	redmineCustomFields	= НастройкиИзФайла.Получить("redmineCustomFields");
+	
+	kaitenTypesInRedmineTrackers = НастройкиИзФайла.Получить("kaitenTypesInRedmineTrackers");
+	kaitenRedmineUsers = НастройкиИзФайла.Получить("kaitenRedmineUsers");
 	
 	redmineURL		= НастройкиИзФайла.Получить("redmineURL");
 	redmineAPIKEY	= НастройкиИзФайла.Получить("redmineAPIKEY");
@@ -109,6 +129,7 @@
 	urlЗапроса			= "https://ekk2.kaiten.ru/api/latest/users";
 	ДанныеПользователей	= ОтправитьЗапросВKaiten(urlЗапроса, "GET", ПараметрыЗапроса);
 	kaitenUsersTable	= СформироватьТаблицуПользователей(ДанныеПользователей);
+	ТаблицаСоответствияПользователей = СформироватьТаблицуСоответствияПользователей();
 	redmineVersionsTable = СформироватьТаблицуВерсий();
 	
 	ШаблонЗапроса	= "https://%1.kaiten.ru/api/latest/cards/%2";
@@ -150,6 +171,12 @@
 		КонецЕсли;
 		
 	КонецЦикла;
+	
+	kaitenTypeId = ДанныеЗадачи.Получить("type_id");
+	Если kaitenTypeId <> Неопределено Тогда
+		tracker_id = kaitenTypesInRedmineTrackers.Получить(Строка(kaitenTypeId));
+		ДанныеЗадачи.Вставить("tracker_id", tracker_id);
+	КонецЕсли;
 	
 КонецПроцедуры
 
@@ -200,6 +227,24 @@
 	ТЗ.Колонки.Добавить("email"		, Новый ОписаниеТипов("Строка"));
 	
 	Для Каждого Пользователь Из ДанныеПользователей Цикл
+		НоваяСтрока = ТЗ.Добавить();
+		Для Каждого Колонка Из ТЗ.Колонки Цикл
+			ИмяПоля = Колонка.Имя;
+			НоваяСтрока[ИмяПоля] = Пользователь.Получить(ИмяПоля);
+		КонецЦикла;
+	КонецЦикла;
+	
+	Возврат ТЗ;
+	
+КонецФункции
+
+Функция СформироватьТаблицуСоответствияПользователей()
+	
+	ТЗ = Новый ТаблицаЗначений();
+	ТЗ.Колонки.Добавить("uid"		, Новый ОписаниеТипов("Строка", , , , Новый КвалификаторыСтроки(36)));
+	ТЗ.Колонки.Добавить("redmineId"	, Новый ОписаниеТипов("Строка"));
+	
+	Для Каждого Пользователь Из kaitenRedmineUsers Цикл
 		НоваяСтрока = ТЗ.Добавить();
 		Для Каждого Колонка Из ТЗ.Колонки Цикл
 			ИмяПоля = Колонка.Имя;
@@ -275,8 +320,9 @@
 	ПараметрыЗапроса.Вставить("key", 	redmineAPIKEY);
 	
 	Заголовки = Новый Соответствие;
-	Заголовки.Вставить("Content-Type"	, "application/json");
-	Заголовки.Вставить("Accept"			, "application/json");
+	Заголовки.Вставить("Content-Type"		, "application/json");
+	Заголовки.Вставить("Accept"				, "application/json");
+	Заголовки.Вставить("X-Redmine-API-Key"	, redmineAPIKEY);
 	
 	Попытка
 		Если ТипЗапроса = "GET" Тогда
@@ -297,45 +343,105 @@
 
 КонецФункции
 
-
-
-
-
-// Creating an issue
-// POST /issues.[format]
-// Parameters:
-
-// issue - A hash of the issue attributes:
-	// project_id
-	// tracker_id
-	// status_id
-	// priority_id
-	// subject
-	// description
-	// category_id
-	// fixed_version_id - ID of the Target Versions (previously called 'Fixed Version' and still referred to as such in the API)
-	// assigned_to_id - ID of the user to assign the issue to (currently no mechanism to assign by name)
-	// parent_issue_id - ID of the parent issue
-	// custom_fields - See Custom fields
-	// watcher_user_ids - Array of user ids to add as watchers (since 2.3.0)
-	// is_private - Use true or false to indicate whether the issue is private or not
-	// estimated_hours - Number of hours estimated for issue
-
-Функция СформироватьДанныеЗадачи(ДанныеЗадачи)
+Функция СформироватьПользовательскиеПоляRedmine(ДанныеЗадачи) Экспорт
 	
-	id = Неопределено;
+	МассивПолей = Новый Массив();
+	
+	Для Каждого Поле Из redmineCustomFields Цикл
+		
+		id = Поле.Получить("id");
+		name = Поле.Получить("name");
+		value = Поле.Получить("value");
+		Если ТипЗнч(value) = Тип("Массив") И value.Количество() = 0 Тогда
+			// Определение пользователей для значения
+			Если name = "Отв. Разработчик" Тогда
+				МассивРазработчиковKaiten = ДанныеЗадачи.Получить("Разработчик");
+				Если МассивРазработчиковKaiten.Количество() > 0 Тогда
+					Отбор = Новый Структура("uid", МассивРазработчиковKaiten[0].uid);
+					ИскомыеСтроки = ТаблицаСоответствияПользователей.НайтиСтроки(Отбор);
+					Если ИскомыеСтроки.Количество() > 0 Тогда
+						value = ИскомыеСтроки[0].redmineId;
+					Иначе
+						value = "";
+					КонецЕсли;
+				Иначе
+					value = "";
+				КонецЕсли;
+			КонецЕсли;
+			Если name = "Отв. аналитик (подрядчик)" Тогда
+				АналитикиKaiten = ДанныеЗадачи.Получить("Аналитик");
+				Если АналитикиKaiten.Количество() > 0 Тогда
+					Отбор = Новый Структура("uid", АналитикиKaiten[0].uid);
+					ИскомыеСтроки = ТаблицаСоответствияПользователей.НайтиСтроки(Отбор);
+					Если ИскомыеСтроки.Количество() > 0 Тогда
+						value = ИскомыеСтроки[0].redmineId;
+					Иначе
+						value = "";
+					КонецЕсли;
+				Иначе
+					value = "";
+				КонецЕсли;
+			КонецЕсли;
+		КонецЕсли;
+		ДобавитьПользовательскоеПолеRedmine(МассивПолей, id, name, value);
+		
+	КонецЦикла;
+	
+	Возврат МассивПолей;
+	
+КонецФункции
 
-	// Проверка параметров
+Процедура ДобавитьПользовательскоеПолеRedmine(МассивПолей, id, name, value)
+	
+	СтруктураПоля = Новый Структура("id, name, value", id, name, value);
+	МассивПолей.Добавить(СтруктураПоля);
+	
+КонецПроцедуры
 
-	ПараметрыЗапроса = Новый Структура("issue", Новый Структура());
-	ПараметрыЗапроса.issue.Вставить("project_id", );
-	ПараметрыЗапроса.issue.Вставить();
-	ПараметрыЗапроса.issue.Вставить();
-	ПараметрыЗапроса.issue.Вставить();
-	ПараметрыЗапроса.issue.Вставить();
-
-	RM_Issues_URL = redmineURL + "issue.json";
-	Ответ = ОтправитьЗапросВRedmine(RM_Issues_URL, "POST", ПараметрыЗапроса);
-	Проекты = Ответ.Получить("projects");
+Функция СформироватьДанныеЗадачи(ДанныеЗадачи) Экспорт
+	
+	// Creating an issue
+	// POST /issues.[format]
+	// Parameters:
+	
+	// issue - A hash of the issue attributes:
+		// project_id
+		// tracker_id
+		// status_id
+		// priority_id
+		// subject
+		// description
+		// category_id
+		// fixed_version_id - ID of the Target Versions (previously called 'Fixed Version' and still referred to as such in the API)
+		// assigned_to_id - ID of the user to assign the issue to (currently no mechanism to assign by name)
+		// parent_issue_id - ID of the parent issue
+		// custom_fields - See Custom fields
+		// watcher_user_ids - Array of user ids to add as watchers (since 2.3.0)
+		// is_private - Use true or false to indicate whether the issue is private or not
+		// estimated_hours - Number of hours estimated for issue
+	
+	custom_fields = СформироватьПользовательскиеПоляRedmine(ДанныеЗадачи);
+	
+	ПараметрыЗапроса = Новый Структура();
+	issue = Новый Структура();
+	issue.Вставить("project_id"			, redmineProjectId);
+	issue.Вставить("tracker_id"			, ДанныеЗадачи.Получить("tracker_id"));
+	issue.Вставить("status_id"			, redmineStatusId);
+	issue.Вставить("priority_id"		, redminePriority.Получить("Нормальный"));
+	issue.Вставить("subject"			, ДанныеЗадачи.Получить("title"));
+	issue.Вставить("description"		, ); // TODO разобрать
+	issue.Вставить("category_id"		, redmineCategory.Получить("ЕКК2. ФИ (10.2. Кредиты)"));
+	СтрокиВерсий = ДанныеЗадачи.Получить("ПлановыйРелиз");
+	Если СтрокиВерсий <> Неопределено Тогда
+		issue.Вставить("fixed_version_id"	, СтрокиВерсий.id);
+	КонецЕсли;
+	issue.Вставить("assigned_to_id"		, redmineAssignedId);
+	//issue.Вставить("parent_issue_id"	, );
+	issue.Вставить("custom_fields"		, custom_fields);
+	//issue.Вставить("watcher_user_ids"	, );
+	
+	ПараметрыЗапроса.Вставить("issue", issue);
+	
+	Возврат ПараметрыЗапроса;
 	
 КонецФункции
