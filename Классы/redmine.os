@@ -65,7 +65,11 @@
 	kaitenRedmineUsers = НастройкиИзФайла.Получить("kaitenRedmineUsers");
 	
 	redmineURL		= НастройкиИзФайла.Получить("redmineURL");
+	Настройки.Вставить("redmineURL", redmineURL);
 	redmineAPIKEY	= НастройкиИзФайла.Получить("redmineAPIKEY");
+	
+	createIssueUrl	= redmineURL + "issues.json";
+	Настройки.Вставить("createIssueUrl", createIssueUrl);
 	
 	Возврат Настройки;
 	
