@@ -9,4 +9,4 @@ chcp 65001
 --redmineAPIKEY="ccab5eb94dc455b4c16702769cf092346ac35a4a" ^
 --config="%~dp0redmine_config.json" ^
 --redmineUsers="%~dp0redmine_users.json" ^
-----idCard="12345678" >> "%~dp0logRedmine.txt"
+--idCard="12345678" >> "%~dp0logRedmine.txt"
